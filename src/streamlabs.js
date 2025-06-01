@@ -58,9 +58,9 @@ class StreambLabsConnector {
   switchScene(newSceneId, currentSceneId) {
     this.request('ScenesService', 'makeSceneActive', newSceneId);
     this.request('TransitionsService', 'executeStudioModeTransition')
-    setTimeout(() => {
-      this.request('ScenesService', 'makeSceneActive', currentSceneId);
-    }, 1000) 
+    // setTimeout(() => {
+    //   this.request('ScenesService', 'makeSceneActive', currentSceneId);
+    // }, 1000) 
   }
 
   getScenes() {
@@ -142,13 +142,57 @@ class StreambLabsConnector {
   };
 
   onSourceUpdatedHandler(sourceModel) {
-    let source = this.audioSources.find(source => source.sourceId === sourceModel.sourceId);
-    source.muted = sourceModel.muted;
-  };
+    try {
+      // 1) Verifica se o payload veio com o ID esperado
+      if (!sourceModel || !sourceModel.sourceId) {
+        console.warn('⚠️ onSourceUpdatedHandler recebeu sourceModel inválido:', sourceModel);
+        return;
+      }
+  
+      // 2) Verifica se já existe o array de fontes (sources)
+      if (!this.sources) {
+        console.warn('⚠️ onSourceUpdatedHandler: this.sources ainda não foi inicializado.');
+        return;
+      }
+  
+      // 3) Tenta encontrar a fonte correspondente pelo sourceId
+      let source = this.sources.find(s => s.sourceId === sourceModel.sourceId);
+      if (!source) {
+        console.warn(`⚠️ Source não encontrada para sourceId=${sourceModel.sourceId}`, {
+          sourceModel,
+          todasAsSources: this.sources
+        });
+        return;
+      }
+  
+      // 4) Se tudo estiver ok, faz o merge dos dados recebidos com o objeto existente
+      Object.assign(source, sourceModel);
+  
+      // 5) (Opcional) se você quiser reagir a essa atualização, 
+      //    por exemplo emitindo um evento interno ou atualizando cache:
+      // this.emit('source-updated', source);
+  
+    } catch (err) {
+      // 6) Captura qualquer outro erro inesperado e loga no console
+      console.error('❌ Erro em onSourceUpdatedHandler:', err);
+      console.error('Payload de sourceModel:', sourceModel);
+      console.error('Estado atual de this.sources:', this.sources);
+      // Não relançamos, para não derrubar o processo
+    }
+  }
 
   onSceneItemUpdateHandler(sceneItemModel) {
-    let sceneItem = this.sceneItems.find(sceneItem => sceneItem.sceneItemId === sceneItemModel.sceneItemId);
-    Object.assign(sceneItem, sceneItemModel);
+    try {
+      if (!sceneItemModel.sceneItemId) return;
+      if (!this.sceneItems) return;
+      let sceneItem = this.sceneItems.find(sceneItem => sceneItem.sceneItemId === sceneItemModel.sceneItemId);
+      console.log(sceneItem, sceneItemModel);
+      Object.assign(sceneItem, sceneItemModel);
+    } catch (error) {
+      console.error('Error updating scene item:', error);
+      console.error('Scene Item Model:', sceneItemModel);
+      console.error('Scene Items:', this.sceneItems);      
+    }
   };
 
   onSceneItemAdded(sceneItemModel) {
